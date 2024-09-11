@@ -10,12 +10,12 @@ The next-gen webOS and development environment with full Linux emulation.
 An entirely local browser-based "OS" and development environment with complete graphical Linux emulation, visually based on ChromiumOS. See a demo [here](https://anura.pro), fully in your browser.
 
 > [!WARNING]  
-> Anura OS has only been extensively tested on Chromium and Safari. Although nearly everything should work on Firefox, you may run into problems with instability.
+> Anura mainly targets Chromium but should work on most browsers. For a list of known browser specific quirks check [this document](BrowserQuirks.md).
 
 Anura uses the features of a PWA (Progressive Web App) to make its environment work fully offline, providing a virtual filesystem (synced with the Linux emulator), a code editor, and a modular and extensible app system. You can even edit Anura's code live while inside of it!
 
 Anura shows as more of a proof-of-concept with what's possible on the modern web rather than an actual product. However, it proves useful in many actual cases and is a useful educational tool.
-![](/assets/showcase1.gif)
+![](/assets/showcase.png)
 
 ## Development
 
@@ -35,14 +35,19 @@ Anura shows as more of a proof-of-concept with what's possible on the modern web
 
 -   Recent versions of `node.js` and `npm`
 -   `wget`
--   A recent version of `java`
+-   A recent version of `java` (11+)
 -   `inotifytools`
 -   `rustup`
+-   `wasm-opt`
 -   `make`
--   `gcc` (or any other C compiler)
+-   `gcc`
+-   `clang`
+-   `uuid-runtime`
+-   `jq`
+-   `docker`
 
 > [!NOTE]
-> You will have to install the required Rust toolchain by running `rustup target add wasm32-unknown-unknown`.
+> You will have to install the required Rust toolchain by running `rustup target add wasm32-unknown-unknown` and also `rustup target add i686-unknown-linux-gnu` if you are planning to build v86 images.
 
 #### Building
 
@@ -67,24 +72,17 @@ You can run Anura with the command
 make server
 ```
 
-Or, run authenticated with
-
-```sh
-cd server
-npm start -- --auth
-```
-
 Anura should now be running at `localhost:8000`.
 
 ## App Development
 
-App development is highly encouraged! Good apps can even be added to the official workstore after review by an AnuraOS maintainer. Apps are stored in .app files which are read by AnuraOS to provide you, well, an app!
+App development is highly encouraged! Good apps can even be added to the official app repositories after review by an AnuraOS maintainer. Apps are stored in .app files which are read by AnuraOS to provide you, well, an app!
 
-For more information about developing an AnuraOS app visit [here](./documentation/appdevt.md).
+For more information about developing an AnuraOS app please visit [this page](./documentation/appdevt.md) and for using Anura API's in your code, please visit [this page](./documentation/Anura-API.md).
 
 ## Documentation
 
-Still being written. (See the current index of documentation [here](./documentation/README.md))
+See the current index of documentation [here](./documentation/README.md).
 
 ## Security
 

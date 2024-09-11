@@ -16,6 +16,7 @@ dist/
 bios/
 apps/games.app
 apps/libfileview.lib/icons/
+bin/chimerix.ajs
 libv86.js
 v86.wasm
 public/dist.js
@@ -28,4 +29,8 @@ package-lock.json
 result
 public/config.json
 static/
-
+x86_image_wizard/alpine/anurad.c
+x86_image_wizard/alpine/xfrog.sh
+x86_image_wizard/alpine/xsetrandr.sh
+x86_image_wizard/alpine/anuramouse
+x86_image_wizard/alpine/epoxy-server

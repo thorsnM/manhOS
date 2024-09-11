@@ -1,10 +1,9 @@
 dist.js
 build/
+bin/
 aboutproxy/
-libapps/
 v86/
 apps/
-nohost/
 .eslintrc.js
 public/anura-sw.js
 public/lib/
@@ -12,3 +11,8 @@ documentation/templates
 public/lib/html-to-image.min.js
 public/uv/
 static/
+chimerix/
+dreamlandjs/
+x86_image_wizard/twisp/
+x86_image_wizard/epoxy/
+native-file-system-adapter/

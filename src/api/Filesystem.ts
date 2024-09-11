@@ -440,7 +440,7 @@ class AFSShell {
             /**
              * Callback to execute on each file.
              */
-            exec?: (path: string, next: () => void) => void;
+            exec?: (path: string) => void;
         },
         callback?: (err: Error | null, files: string[]) => void,
     ): void;
@@ -522,15 +522,7 @@ class AFSShell {
                 );
             }
             if (options.exec) {
-                let remaining = results.length;
-                results.forEach((file) => {
-                    options.exec!(file, () => {
-                        remaining--;
-                        if (remaining === 0) {
-                            callback!(null, results);
-                        }
-                    });
-                });
+                results.forEach((file) => options.exec!(file));
             } else {
                 callback!(null, results);
             }
@@ -562,22 +554,13 @@ class AFSShell {
         const entries: any[] = [];
 
         if (options.recursive) {
-            this.find(
-                dir,
-                {
-                    exec: (path, next = () => {}) => {
-                        entries.push(path);
-                        next();
-                    },
-                },
-                (err, _) => {
-                    if (err) {
-                        callback!(err, []);
-                        return;
-                    }
-                    callback!(null, entries);
-                },
-            );
+            this.find(dir, (err, files) => {
+                if (err) {
+                    callback!(err, []);
+                    return;
+                }
+                callback!(null, files);
+            });
         } else {
             anura.fs.readdir(
                 this.#relativeToAbsolute(dir),
@@ -812,7 +795,7 @@ class AFSShell {
                 regex?: RegExp;
                 name?: string;
                 path?: string;
-                exec?: (path: string, next: () => void) => void;
+                exec?: (path: string) => void;
             },
         ) => {
             return new Promise<string[]>((resolve, reject) => {
@@ -918,6 +901,56 @@ class AFSShell {
 class AnuraFilesystem implements AnuraFSOperations<any> {
     providers: Map<string, AFSProvider<any>> = new Map();
     providerCache: { [path: string]: AFSProvider<any> } = {};
+    whatwgfs = {
+        fs: undefined,
+        getFolder: async () => {
+            // @ts-ignore
+            return await this.whatwgfs.fs.getOriginPrivateDirectory(
+                // @ts-ignore
+                import("/libs/nfsadapter/adapters/anuraadapter.js"),
+            );
+        },
+        fileOrDirectoryFromPath: async (path: string) => {
+            try {
+                return await this.whatwgfs.directoryHandleFromPath(path);
+            } catch (e1) {
+                try {
+                    return await this.whatwgfs.fileHandleFromPath(path);
+                } catch (e2) {
+                    throw e1 + e2;
+                }
+            }
+        },
+        directoryHandleFromPath: async (path: string) => {
+            const pathParts = path.split("/");
+            // prettier-ignore
+            let workingPath = (await anura.fs.whatwgfs.getFolder());
+            for (const dir of pathParts) {
+                if (dir !== "")
+                    workingPath = await workingPath.getDirectoryHandle(dir);
+            }
+            return workingPath;
+        },
+        fileHandleFromPath: async (givenPath: string) => {
+            let path: string | string[] = givenPath.split("/");
+            const file = path.pop();
+            path = path.join("/");
+
+            // prettier-ignore
+            const workingPath = (await anura.fs.whatwgfs.directoryHandleFromPath(path));
+            return await workingPath.getFileHandle(file);
+        },
+        showDirectoryPicker: async (options: object) => {
+            const picker = await anura.import("anura.filepicker");
+            const path = await picker.selectFolder();
+            return await this.whatwgfs.directoryHandleFromPath(path);
+        },
+        showOpenFilePicker: async (options: object) => {
+            const picker = await anura.import("anura.filepicker");
+            const path = await picker.selectFile();
+            return await this.whatwgfs.fileHandleFromPath(path);
+        },
+    };
 
     // Note: Intentionally aliasing the property to a class instead of an instance
     static Shell = AFSShell;
@@ -927,6 +960,20 @@ class AnuraFilesystem implements AnuraFSOperations<any> {
         providers.forEach((provider) => {
             this.providers.set(provider.domain, provider);
         });
+        // These paths must be TS ignore'd since they are in build/
+
+        (async () => {
+            // @ts-ignore
+            const fs = await import("/libs/nfsadapter/nfsadapter.js");
+            // @ts-ignore
+            this.whatwgfs.FileSystemDirectoryHandle =
+                fs.FileSystemDirectoryHandle;
+            // @ts-ignore
+            this.whatwgfs.FileSystemFileHandle = fs.FileSystemFileHandle;
+            // @ts-ignore
+            this.whatwgfs.FileSystemHandle = fs.FileSystemHandle;
+            this.whatwgfs.fs = fs;
+        })();
     }
 
     clearCache() {
@@ -1163,9 +1210,12 @@ class AnuraFilesystem implements AnuraFSOperations<any> {
         this.processPath(path).readFile(path, callback);
     }
 
-    writeFile(path: string, ...rest: any[]) {
-        // @ts-ignore - Overloaded methods are scary
-        this.processPath(path).writeFile(path, ...rest);
+    writeFile(path: string, data: Uint8Array | string, ...rest: any[]) {
+        if (data instanceof Uint8Array && !(data instanceof Filer.Buffer)) {
+            data = Filer.Buffer.from(data);
+        }
+
+        this.processPath(path).writeFile(path, data, ...rest);
     }
 
     appendFile(
@@ -1173,6 +1223,10 @@ class AnuraFilesystem implements AnuraFSOperations<any> {
         data: Uint8Array,
         callback?: (err: Error | null) => void,
     ) {
+        if (data instanceof Uint8Array && !(data instanceof Filer.Buffer)) {
+            data = Filer.Buffer.from(data);
+        }
+
         this.processPath(path).appendFile(path, data, callback);
     }
 
@@ -1217,7 +1271,17 @@ class AnuraFilesystem implements AnuraFSOperations<any> {
             path: string,
             data: Uint8Array,
             options: { encoding: string; mode: number; flag: string },
-        ) => this.processPath(path).promises.appendFile(path, data, options),
+        ) => {
+            if (data instanceof Uint8Array && !(data instanceof Filer.Buffer)) {
+                data = Filer.Buffer.from(data);
+            }
+
+            return this.processPath(path).promises.appendFile(
+                path,
+                data,
+                options,
+            );
+        },
         access: (path: string, mode?: number) =>
             this.processPath(path).promises.access(path, mode),
         chown: (path: string, uid: number, gid: number) =>
@@ -1271,6 +1335,12 @@ class AnuraFilesystem implements AnuraFSOperations<any> {
             path: string,
             data: Uint8Array | string,
             options?: { encoding: string; mode: number; flag: string },
-        ) => this.processPath(path).promises.writeFile(path, data, options),
+        ) => {
+            if (data instanceof Uint8Array && !(data instanceof Filer.Buffer)) {
+                data = Filer.Buffer.from(data);
+            }
+
+            this.processPath(path).promises.writeFile(path, data, options);
+        },
     };
 }
